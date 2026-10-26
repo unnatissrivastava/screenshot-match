@@ -78,13 +78,17 @@ function Index() {
               : "pr-1 lg:overflow-y-auto"
           }`}
         >
-          <div className={fullscreen ? "h-full" : "space-y-2"}>
-            <HealthcarePanel fullscreen={fullscreen} mode={mode} />
-            <div className={fullscreen || mode === "healthcare" ? "hidden" : ""}>
+          <div className="flex flex-col gap-2">
+            <div className={mode === "healthcare" ? "order-1" : "order-3"}>
+              <HealthcarePanel fullscreen={fullscreen && mode === "healthcare"} mode={mode} />
+            </div>
+            <div className={mode === "security" ? "order-1" : "hidden"}>
               <SecurityPanel />
             </div>
-            <div className={fullscreen ? "hidden" : ""}>
-              <FleetPanel />
+            <div
+              className={mode === "healthcare" ? (fullscreen ? "hidden" : "order-3") : "order-2"}
+            >
+              <FleetPanel compact={mode === "security"} />
             </div>
           </div>
         </aside>

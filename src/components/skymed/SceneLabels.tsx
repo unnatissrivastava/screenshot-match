@@ -9,27 +9,29 @@ export type Pos = [number, number, number];
 export interface Entry {
   el: HTMLElement;
   pos: () => Pos | null;
+  priority: number;
 }
 export const labelRegistry = new Map<string, Entry>();
 
-function useLabel(id: string, pos: () => Pos | null) {
+function useLabel(id: string, pos: () => Pos | null, priority = 1) {
   return useCallback(
     (el: HTMLElement | null) => {
-      if (el) labelRegistry.set(id, { el, pos });
+      if (el) labelRegistry.set(id, { el, pos, priority });
       else labelRegistry.delete(id);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id],
+    [id, priority],
   );
 }
 
 const KIND_ICON: Record<string, string> = { hospital: "✚", pharmacy: "Rx", residential: "⌂", hub: "⚡" };
 const base = "pointer-events-none absolute left-0 top-0 whitespace-nowrap will-change-transform";
 
-function LocationLabel({ id }: { id: string }) {
+function LocationLabel({ id, hubLabels }: { id: string; hubLabels: boolean }) {
   const l = getLocation(id);
   const y = l.kind === "hospital" ? 5.4 : l.kind === "residential" && l.landY > 1 ? 4.4 : l.kind === "hub" ? 1.4 : 2.4;
-  const ref = useLabel(`loc-${id}`, () => [l.x, y, l.z]);
+  const ref = useLabel(`loc-${id}`, () => [l.x, y, l.z], l.kind === "hub" ? 5 : 4);
+  if (l.kind === "hub" && !hubLabels) return null;
   return (
     <div
       ref={ref}
@@ -45,31 +47,50 @@ function LocationLabel({ id }: { id: string }) {
   );
 }
 
-function DroneLabel({ index }: { index: number }) {
+function DroneLabel({
+  index,
+  visible,
+  selectedDroneId,
+  hoveredDroneId,
+}: {
+  index: number;
+  visible: boolean;
+  selectedDroneId: string | null;
+  hoveredDroneId: string | null;
+}) {
   const d = useSim((s) => s.snap.drones[index]);
+  const expanded = d?.id === selectedDroneId || d?.id === hoveredDroneId;
   const ref = useLabel(`drone-${index}`, () => {
     const x = getEngine().drones[index];
-    if (!x || !x.airborne) return null;
-    return [x.pos.x, x.pos.y + 0.45, x.pos.z];
-  });
+    if (!x || (!x.airborne && !expanded)) return null;
+    return [x.pos.x, x.pos.y + (expanded ? 1.1 : 0.65), x.pos.z];
+  }, expanded ? 8 : 2);
   if (!d) return null;
   return (
     <div
       ref={ref}
       data-task={d.task}
       data-low={d.battery < 30 ? "1" : "0"}
+      data-selected={expanded ? "true" : "false"}
       style={{ visibility: "hidden" }}
-      className={`${base} flex items-center gap-1 rounded-sm border border-border bg-panel px-1.5 py-px font-mono text-[10px] leading-tight text-foreground data-[task=delivery]:border-primary data-[task=delivery]:text-primary data-[task=patrol]:border-warning/70 data-[task=patrol]:text-warning data-[task=shuttle]:text-shuttle data-[low='1']:text-alert`}
+      className={`${base} ${visible && (d.airborne || expanded) ? "flex" : "hidden"} items-center gap-1 rounded-md border border-border/70 bg-background/90 px-1.5 py-0.5 font-mono text-[9px] leading-tight text-foreground shadow-sm data-[task=delivery]:border-primary/70 data-[task=delivery]:text-primary data-[task=patrol]:border-warning/60 data-[task=patrol]:text-warning data-[task=shuttle]:text-shuttle data-[low='1']:text-alert data-[selected=true]:flex-col data-[selected=true]:items-start data-[selected=true]:gap-0.5 data-[selected=true]:px-2 data-[selected=true]:py-1`}
     >
-      {d.id}
-      <span className="opacity-75">{Math.round(d.battery)}%</span>
-      {d.carrying && <span className="text-alert">✚</span>}
+      <span className="flex items-center gap-1.5">
+        {d.id}
+        <span className="opacity-75">{Math.round(d.battery)}%</span>
+        {d.carrying && <span className="text-alert">✚</span>}
+      </span>
+      {expanded && (
+        <span className="max-w-40 truncate text-[9px] text-muted-foreground" title={d.status}>
+          {d.status}
+        </span>
+      )}
     </div>
   );
 }
 
 function MarkerLabel({ id, pos, text, sub, tone }: { id: string; pos: Pos; text: string; sub: string; tone: "primary" | "success" | "alert" | "warning" }) {
-  const ref = useLabel(id, () => pos);
+  const ref = useLabel(id, () => pos, tone === "alert" ? 7 : 6);
   const cls = {
     primary: "border-primary text-primary",
     success: "border-success text-success",
@@ -131,14 +152,30 @@ function MarkerLabels() {
 }
 
 /** Mount as a DOM sibling covering the canvas. */
-export function SceneLabels() {
+export function SceneLabels({
+  droneLabels = true,
+  hubLabels = true,
+  selectedDroneId = null,
+  hoveredDroneId = null,
+}: {
+  droneLabels?: boolean;
+  hubLabels?: boolean;
+  selectedDroneId?: string | null;
+  hoveredDroneId?: string | null;
+}) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {LOCATIONS.map((l) => (
-        <LocationLabel key={l.id} id={l.id} />
+        <LocationLabel key={l.id} id={l.id} hubLabels={hubLabels} />
       ))}
       {Array.from({ length: 12 }, (_, i) => (
-        <DroneLabel key={i} index={i} />
+        <DroneLabel
+          key={i}
+          index={i}
+          visible={droneLabels}
+          selectedDroneId={selectedDroneId}
+          hoveredDroneId={hoveredDroneId}
+        />
       ))}
       <MarkerLabels />
     </div>

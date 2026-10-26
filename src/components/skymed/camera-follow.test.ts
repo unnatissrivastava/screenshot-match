@@ -1,8 +1,32 @@
 import * as THREE from "three";
 import { describe, expect, it, vi } from "vitest";
-import { updateCinematicCamera } from "./camera-follow";
+import { getDeliveryCameraFocus, updateCinematicCamera } from "./camera-follow";
 
 describe("cinematic camera follow", () => {
+  it("frames the drone and the relevant location at each delivery stage", () => {
+    const drone = new THREE.Vector3(1, 2, 3);
+    const pickup = new THREE.Vector3(5, 6, 7);
+    const destination = new THREE.Vector3(9, 10, 11);
+    const hub = new THREE.Vector3(-1, 0, -3);
+    const target = new THREE.Vector3();
+    const stages = [
+      ["dispatch", drone, 18],
+      ["pickup", new THREE.Vector3(3, 4, 5), 16],
+      ["transit", drone, 22],
+      ["arrival", new THREE.Vector3(5, 6, 7), 16],
+      ["otp", new THREE.Vector3(5, 6, 7), 14],
+      ["delivery", new THREE.Vector3(5, 6, 7), 14],
+      ["return", new THREE.Vector3(0, 1, 0), 18],
+      ["charging", new THREE.Vector3(0, 1, 0), 14],
+    ] as const;
+
+    for (const [stage, expectedTarget, expectedDistance] of stages) {
+      const distance = getDeliveryCameraFocus(stage, drone, pickup, destination, hub, target);
+      expect(target.distanceTo(expectedTarget)).toBe(0);
+      expect(distance).toBe(expectedDistance);
+    }
+  });
+
   it("smoothly moves toward and tracks the actual drone object position", () => {
     const camera = new THREE.PerspectiveCamera();
     camera.position.set(35, 37, 35);
@@ -42,6 +66,21 @@ describe("cinematic camera follow", () => {
     expect(camera.position.x).toBeGreaterThan(10);
     expect(controls.target.x).toBeLessThan(3);
     expect(controls.update).toHaveBeenCalledOnce();
+  });
+
+  it("smoothly moves the camera target and zoom to a delivery-stage focus", () => {
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(35, 37, 35);
+    const controls = { target: new THREE.Vector3(), update: vi.fn() };
+    const target = new THREE.Vector3(8, 4, -6);
+    const focus = { target, distance: 14 };
+
+    for (let i = 0; i < 120; i++) {
+      updateCinematicCamera(camera, controls, undefined, true, false, 1 / 60, focus);
+    }
+
+    expect(controls.target.distanceTo(target)).toBeLessThan(0.1);
+    expect(camera.position.distanceTo(target)).toBeCloseTo(14, 0);
   });
 
   it("holds the current camera while the active drone object is not registered yet", () => {
