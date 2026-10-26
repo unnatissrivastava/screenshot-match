@@ -10,6 +10,7 @@ import {
   Mouse,
   RotateCcw,
   Route,
+  SlidersHorizontal,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -18,7 +19,7 @@ import { getLocation } from "@/sim/city";
 import { useSim } from "@/sim/store";
 import { FallbackMap } from "./FallbackMap";
 import { SceneLabels } from "./SceneLabels";
-import type { CameraActions } from "./SceneCanvas";
+import type { CameraActions, MapDisplayOptions } from "./SceneCanvas";
 
 const SceneCanvas = lazy(() => import("./SceneCanvas"));
 
@@ -137,6 +138,58 @@ function Legend() {
   );
 }
 
+function MapDisplayControls({
+  options,
+  onChange,
+  selectedDroneId,
+  onClearSelection,
+}: {
+  options: MapDisplayOptions;
+  onChange: (key: keyof MapDisplayOptions) => void;
+  selectedDroneId: string | null;
+  onClearSelection: () => void;
+}) {
+  const items: Array<{ key: keyof MapDisplayOptions; label: string }> = [
+    { key: "droneLabels", label: "Drone labels" },
+    { key: "flightPaths", label: "Flight paths" },
+    { key: "spotlights", label: "Spotlight beams" },
+    { key: "hubLabels", label: "Hub labels" },
+  ];
+  return (
+    <details className="panel pointer-events-auto relative rounded-lg">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground marker:hidden hover:text-foreground">
+        <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+        Map display
+      </summary>
+      <div className="absolute left-0 top-full z-20 mt-1 min-w-40 space-y-0.5 rounded-lg border border-border bg-background/95 p-1.5 shadow-panel backdrop-blur">
+        {items.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={options[key]}
+            onClick={() => onChange(key)}
+            className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            {label}
+            <span
+              className={`h-2 w-2 rounded-full ${options[key] ? "bg-primary" : "bg-muted-foreground/40"}`}
+            />
+          </button>
+        ))}
+        {selectedDroneId && (
+          <button
+            type="button"
+            onClick={onClearSelection}
+            className="w-full border-t border-border px-2 pt-1.5 text-left text-[11px] text-primary hover:text-foreground"
+          >
+            Clear selected drone
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export function Viewport({
   fullscreen,
   onToggleFullscreen,
@@ -148,6 +201,14 @@ export function Viewport({
   const [view, setView] = useState<"3d" | "2d">("3d");
   const [cameraActions, setCameraActions] = useState<CameraActions | null>(null);
   const [followDrone, setFollowDrone] = useState(true);
+  const [selectedDroneId, setSelectedDroneId] = useState<string | null>(null);
+  const [hoveredDroneId, setHoveredDroneId] = useState<string | null>(null);
+  const [displayOptions, setDisplayOptions] = useState<MapDisplayOptions>({
+    droneLabels: true,
+    flightPaths: true,
+    spotlights: false,
+    hubLabels: true,
+  });
   const mode = useSim((s) => s.snap.mode);
   useEffect(() => setWebgl(hasWebGL()), []);
 
@@ -166,8 +227,18 @@ export function Viewport({
             onCameraReady={setCameraActions}
             followEnabled={followDrone}
             onFollowChange={setFollowDrone}
+            displayOptions={displayOptions}
+            selectedDroneId={selectedDroneId}
+            hoveredDroneId={hoveredDroneId}
+            onSelectDrone={setSelectedDroneId}
+            onHoverDrone={setHoveredDroneId}
           />
-          <SceneLabels />
+          <SceneLabels
+            droneLabels={displayOptions.droneLabels}
+            hubLabels={displayOptions.hubLabels}
+            selectedDroneId={selectedDroneId}
+            hoveredDroneId={hoveredDroneId}
+          />
         </Suspense>
       </SceneBoundary>
     );
@@ -183,8 +254,20 @@ export function Viewport({
       <div className="absolute inset-0">{content}</div>
 
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-3">
-        <div className="flex items-start justify-between gap-3">
-          {!fullscreen && <InfoPanel />}
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {!fullscreen && <InfoPanel />}
+            {view === "3d" && webgl && (
+              <MapDisplayControls
+                options={displayOptions}
+                onChange={(key) =>
+                  setDisplayOptions((current) => ({ ...current, [key]: !current[key] }))
+                }
+                selectedDroneId={selectedDroneId}
+                onClearSelection={() => setSelectedDroneId(null)}
+              />
+            )}
+          </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-1.5">
               {!fullscreen && (

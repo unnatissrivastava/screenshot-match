@@ -2,7 +2,7 @@ import { RoundedBox } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { getEngine } from "@/sim/store";
+import { getEngine, useSim } from "@/sim/store";
 import { P, TASK_COLOR, sceneFx } from "./palette";
 
 const MOTORS: Array<[number, number]> = [
@@ -44,7 +44,25 @@ function useSharedMaterials() {
   );
 }
 
-function Drone({ index, mats }: { index: number; mats: ReturnType<typeof useSharedMaterials> }) {
+function Drone({
+  index,
+  droneId,
+  mats,
+  selected,
+  dimmed,
+  spotlight,
+  onSelect,
+  onHover,
+}: {
+  index: number;
+  droneId: string | undefined;
+  mats: ReturnType<typeof useSharedMaterials>;
+  selected: boolean;
+  dimmed: boolean;
+  spotlight: boolean;
+  onSelect: (id: string) => void;
+  onHover: (id: string | null) => void;
+}) {
   const root = useRef<THREE.Group>(null);
   const tilt = useRef<THREE.Group>(null);
   const rotors = useRef<Array<THREE.Group | null>>([]);
@@ -93,6 +111,7 @@ function Drone({ index, mats }: { index: number; mats: ReturnType<typeof useShar
     const bob = d.airborne ? Math.sin(st.phase * 2.4) * 0.05 : 0;
     g.position.set(d.pos.x, d.pos.y + bob, d.pos.z);
     g.rotation.y = d.heading;
+    g.scale.setScalar(selected ? 1.12 : dimmed ? 0.86 : 1);
 
     // tilt from velocity
     if (!st.init) {
@@ -129,27 +148,39 @@ function Drone({ index, mats }: { index: number; mats: ReturnType<typeof useShar
 
     if (ring.current) {
       tmp.set(TASK_COLOR[d.task] ?? P.cyan);
-      ring.current.color.copy(tmp).multiplyScalar(1 + night * 0.6);
+      ring.current.color.copy(tmp).multiplyScalar(selected ? 1.15 : 1);
+      ring.current.opacity = dimmed ? 0.35 : 0.75;
     }
 
     // patrol searchlight
-    const beamOn = night > 0.05 && d.airborne && (d.task === "patrol" || d.task === "delivery");
+    const beamOn =
+      spotlight && night > 0.05 && d.airborne && (d.task === "patrol" || d.task === "delivery");
     const alt = Math.max(d.pos.y + bob, 0.01);
     if (beam.current && beamMat.current) {
       beam.current.visible = beamOn;
       beam.current.scale.set(1, alt, 1);
       beam.current.position.y = -alt / 2;
-      beamMat.current.opacity = night * (d.task === "patrol" ? 0.16 : 0.08);
+      beamMat.current.opacity = night * (d.task === "patrol" ? 0.08 : 0.04);
     }
     if (spot.current && spotMat.current) {
       spot.current.visible = beamOn;
       spot.current.position.y = -alt + 0.16;
-      spotMat.current.opacity = night * 0.45;
+      spotMat.current.opacity = night * 0.18;
     }
   });
 
+  if (!droneId) return null;
+
   return (
-    <group ref={root}>
+    <group
+      ref={root}
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onSelect(droneId);
+      }}
+      onPointerOver={() => onHover(droneId)}
+      onPointerOut={() => onHover(null)}
+    >
       <group ref={tilt}>
         <RoundedBox
           args={[0.42, 0.14, 0.5]}
@@ -197,7 +228,7 @@ function Drone({ index, mats }: { index: number; mats: ReturnType<typeof useShar
         {/* task ring */}
         <mesh rotation-x={-Math.PI / 2} position-y={-0.075}>
           <ringGeometry args={[0.24, 0.29, 28]} />
-          <meshBasicMaterial ref={ring} toneMapped={false} side={THREE.DoubleSide} />
+          <meshBasicMaterial ref={ring} transparent toneMapped={false} side={THREE.DoubleSide} />
         </mesh>
         {/* nav lights: red = port (+x when facing +z), green = starboard */}
         <mesh position={[0.4, 0.02, 0.4]}>
@@ -273,12 +304,40 @@ function Drone({ index, mats }: { index: number; mats: ReturnType<typeof useShar
   );
 }
 
-export function Drones() {
+export function Drones({
+  displaySpotlights = false,
+  selectedDroneId = null,
+  hoveredDroneId = null,
+  onSelectDrone = () => {},
+  onHoverDrone = () => {},
+}: {
+  displaySpotlights?: boolean;
+  selectedDroneId?: string | null;
+  hoveredDroneId?: string | null;
+  onSelectDrone?: (id: string) => void;
+  onHoverDrone?: (id: string | null) => void;
+}) {
   const mats = useSharedMaterials();
+  const drones = useSim((s) => s.snap.drones);
+  const spotlightDroneId =
+    selectedDroneId ??
+    hoveredDroneId ??
+    drones.find((drone) => drone.task === "patrol" && drone.airborne)?.id ??
+    null;
   return (
     <>
       {Array.from({ length: 12 }, (_, i) => (
-        <Drone key={i} index={i} mats={mats} />
+        <Drone
+          key={i}
+          index={i}
+          droneId={drones[i]?.id}
+          mats={mats}
+          selected={drones[i]?.id === selectedDroneId}
+          dimmed={selectedDroneId !== null && drones[i]?.id !== selectedDroneId}
+          spotlight={displaySpotlights && drones[i]?.id === spotlightDroneId}
+          onSelect={onSelectDrone}
+          onHover={onHoverDrone}
+        />
       ))}
     </>
   );

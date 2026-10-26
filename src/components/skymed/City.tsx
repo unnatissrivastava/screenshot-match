@@ -213,7 +213,7 @@ function TowerTier({ lots, repeatY, textures }: { lots: Lot[]; repeatY: number; 
   }, [lots]);
 
   useFrame(() => {
-    mat.emissiveIntensity = sceneFx.night * 1.6;
+    mat.emissiveIntensity = sceneFx.night * 0.55;
   });
 
   if (!lots.length) return null;
@@ -257,7 +257,7 @@ function Houses({ lots }: { lots: Lot[] }) {
     if (roofs.current!.instanceColor) roofs.current!.instanceColor.needsUpdate = true;
   }, [lots]);
   useFrame(() => {
-    if (winMat.current) winMat.current.emissiveIntensity = sceneFx.night * 0.5;
+    if (winMat.current) winMat.current.emissiveIntensity = sceneFx.night * 0.22;
   });
   if (!lots.length) return null;
   return (

@@ -35,19 +35,20 @@ function Stat({ icon: Icon, label, value, cls }: { icon: typeof Plane; label: st
   );
 }
 
-export function FleetPanel() {
+export function FleetPanel({ compact = false }: { compact?: boolean }) {
   const drones = useSim((s) => s.snap.drones);
   const missions = useSim((s) => s.snap.missions);
   const activeDeliveries = missions.filter((m) => m.stage !== "complete" && m.stage !== "charging").length;
   const airborne = drones.filter((d) => d.airborne).length;
   const charging = drones.filter((d) => d.task === "charging").length;
   const patrol = drones.filter((d) => d.task === "patrol").length;
+  const panelClass = compact ? "panel p-3" : "panel p-4";
 
   return (
-    <div className="space-y-3">
-      <section className="panel p-4">
+    <div className={compact ? "space-y-2.5" : "space-y-3"}>
+      <section className={panelClass}>
         <div className="flex items-center justify-between">
-          <div className="hud-label">Fleet overview</div>
+          <h2 className="hud-label">Fleet Overview</h2>
           <span className="font-mono text-[10px] text-muted-foreground">12 drones · 3 hubs</span>
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
@@ -58,8 +59,8 @@ export function FleetPanel() {
         </div>
       </section>
 
-      <section className="panel p-4">
-        <div className="hud-label">Charging stations</div>
+      <section className={panelClass}>
+        <h2 className="hud-label">Charging Stations</h2>
         <div className="mt-2 space-y-1.5">
           {HUBS.map((h, hi) => {
             const pads = drones.slice(hi * 4, hi * 4 + 4);
@@ -93,9 +94,9 @@ export function FleetPanel() {
         </div>
       </section>
 
-      <section className="panel p-4">
+      <section className={panelClass}>
         <div className="flex items-center justify-between">
-          <div className="hud-label">Drone telemetry</div>
+          <h2 className="hud-label">Drone Telemetry</h2>
           <span className="rounded bg-secondary px-1.5 py-px font-mono text-[9px] uppercase tracking-wider text-muted-foreground">Simulated</span>
         </div>
         <ul className="mt-2 divide-y divide-border/60">
