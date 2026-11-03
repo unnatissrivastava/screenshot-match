@@ -1,4 +1,4 @@
-# Screenshot Match
+# Screenshot Matc
 
 Implement exactly the screenshot and nothing else
 
