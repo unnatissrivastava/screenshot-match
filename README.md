@@ -1,14 +1,24 @@
-# Screenshot Match
+# 🚁 Drone Simulation
 
-Implement exactly the screenshot and nothing else
+A drone simulation project designed to simulate drone movement, navigation, and flight operations in a virtual environment.
 
-## Development
+## 📌 Overview
+This project demonstrates the basic working of a drone through simulation. It focuses on drone movement, navigation, and understanding flight behavior without requiring a physical drone.
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## ✨ Features
+- 🚁 Drone movement simulation
+- 🎮 Virtual flight environment
+- 📍 Navigation and positioning
+- ⚙️ Simulation-based testing
+- 💻 Interactive interface
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+## 🛠️ Tech Stack
+- HTML
+- CSS
+- JavaScript
+
+## 🚀 Getting Started
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/your-username/drone-simulation.git
